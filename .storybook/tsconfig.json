@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "rewriteRelativeImportExtensions": true,
+    "jsx": "react-jsx"
+  },
+  "exclude": [
+    "../src/test.ts",
+    "../src/**/*.spec.ts",
+    "../src/main.ts",
+    "../src/app/**/*"
+  ],
+  "include": ["../src/**/*.stories.*", "../src/stories/**/*.tsx", "../src/stories/**/*.ts", "./**/*.ts"],
+  "files": ["./typings.d.ts"]
+}

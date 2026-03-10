@@ -16,7 +16,6 @@ export type StoryDocumentation = {
   id: string;
   name: string;
   content: string;
-  sourceBlocksByExportName: Record<string, string>;
 };
 
 const getHost = (hostHeader: string | undefined): string => hostHeader ?? DEFAULT_STORYBOOK_HOST;
@@ -141,9 +140,7 @@ const stripLoaders = (importSpecifier: string): string =>
 const resolveImportedFilePath = (storyFilePath: string, importSpecifier: string): string => {
   const filePath = stripLoaders(importSpecifier);
 
-  return path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(path.dirname(storyFilePath), filePath);
+  return path.isAbsolute(filePath) ? filePath : path.resolve(path.dirname(storyFilePath), filePath);
 };
 
 const readImportedFile = async (
@@ -163,8 +160,7 @@ const createCodeFence = (fileName: string, language: string, source: string): st
 
 const buildImportMap = (storySource: string): Map<string, string> => {
   const importMap = new Map<string, string>();
-  const importPattern =
-    /import\s+(?:type\s+)?([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"];?/g;
+  const importPattern = /import\s+(?:type\s+)?([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"];?/g;
 
   for (const match of storySource.matchAll(importPattern)) {
     importMap.set(match[1], match[2]);
@@ -344,8 +340,7 @@ const extractAdditionalSourceFiles = async (
     const objectSource = arraySource.slice(index, objectEnd + 1);
     const displayedFileName =
       objectSource.match(/\bdisplayedFileName\s*:\s*['"]([^'"]+)['"]/)?.[1] ?? 'source';
-    const sourceIdentifier =
-      objectSource.match(/\bsource\s*:\s*([A-Za-z_$][\w$]*)/)?.[1];
+    const sourceIdentifier = objectSource.match(/\bsource\s*:\s*([A-Za-z_$][\w$]*)/)?.[1];
     const language = objectSource.match(/\blang\s*:\s*['"]([^'"]+)['"]/)?.[1] ?? 'text';
     const importedSource = await readImportedIdentifierSource(
       importMap,
@@ -452,19 +447,6 @@ export const getStoryDocumentation = async (
 
   const content = await readStorySource(docsEntry.importPath);
   const storyEntriesByExportName = buildStoryEntriesByExportName(docsEntry, getStoryEntries(index));
-  const sourceBlocksByExportName = Object.fromEntries(
-    await Promise.all(
-      extractCanvasExportNames(content).map(async (exportName) => {
-        const storyEntry = storyEntriesByExportName.get(exportName);
-
-        if (!storyEntry?.importPath) {
-          return [exportName, ''] as const;
-        }
-
-        return [exportName, await getSourceBlocksForStoryExport(storyEntry.importPath, exportName)] as const;
-      }),
-    ),
-  );
 
   return {
     id: docsEntry.id!,

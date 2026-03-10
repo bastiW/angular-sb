@@ -9,10 +9,17 @@ type ContentTransformation = {
   output: string;
 };
 
+type DocumentationCleanupContext = {
+  sourceBlocksByExportName: Record<string, string>;
+};
+
 type DocumentationCleanupRule = {
-  matcher: (line: string) => boolean;
+  matcher: (line: string, context: DocumentationCleanupContext) => boolean;
   matchEnd?: (line: string) => boolean;
-  transformation: (line: string) => ContentTransformation;
+  transformation: (
+    line: string,
+    context: DocumentationCleanupContext,
+  ) => ContentTransformation;
 };
 
 const removeLine = (line: string): ContentTransformation => ({
@@ -20,21 +27,46 @@ const removeLine = (line: string): ContentTransformation => ({
   output: '',
 });
 
+const extractCanvasExportName = (line: string): string | null =>
+  line.match(/\bof=\{([^}]+)\}/)?.[1]?.trim() ?? null;
+
 const DOCUMENTATION_CLEANUP_RULES: DocumentationCleanupRule[] = [
   {
     matcher: (line) => line.trim().startsWith('import '),
     matchEnd: (line) => line.includes('<Meta'),
     transformation: removeLine,
   },
+  {
+    matcher: (line, context) => {
+      const exportName = extractCanvasExportName(line);
+
+      return (
+        line.includes('<MyCanvas') &&
+        Boolean(exportName && context.sourceBlocksByExportName[exportName])
+      );
+    },
+    transformation: (line, context) => {
+      const exportName = extractCanvasExportName(line);
+
+      return {
+        input: line,
+        output: exportName ? context.sourceBlocksByExportName[exportName] ?? line : line,
+      };
+    },
+  },
 ];
 
-const applyCleanupRule = (content: string, rule: DocumentationCleanupRule): string => {
+const applyCleanupRule = (
+  content: string,
+  rule: DocumentationCleanupRule,
+  context: DocumentationCleanupContext,
+): string => {
   const lines = content.split('\n');
   const output: string[] = [];
   let isMatching = false;
 
   for (const line of lines) {
-    if (!isMatching && rule.matcher(line)) {
+    if (!isMatching && rule.matcher(line, context)) {
       isMatching = true;
     }
 
@@ -45,7 +77,10 @@ const applyCleanupRule = (content: string, rule: DocumentationCleanupRule): stri
     }
 
     if (isMatching) {
-      output.push(rule.transformation(line).output);
+      output.push(rule.transformation(line, context).output);
+      if (!rule.matchEnd) {
+        isMatching = false;
+      }
       continue;
     }
 
@@ -55,9 +90,12 @@ const applyCleanupRule = (content: string, rule: DocumentationCleanupRule): stri
   return output.join('\n');
 };
 
-const cleanDocumentationContent = (content: string): string =>
+const cleanDocumentationContent = (
+  content: string,
+  context: DocumentationCleanupContext,
+): string =>
   DOCUMENTATION_CLEANUP_RULES.reduce(
-    (currentContent, rule) => applyCleanupRule(currentContent, rule),
+    (currentContent, rule) => applyCleanupRule(currentContent, rule, context),
     content,
   );
 
@@ -81,7 +119,9 @@ export const registerComponentDocumentationTool = (server: McpServer): void => {
         getHeaderValue(extra.requestInfo?.headers['host']),
         id,
       );
-      const cleanedContent = cleanDocumentationContent(documentation.content);
+      const cleanedContent = cleanDocumentationContent(documentation.content, {
+        sourceBlocksByExportName: documentation.sourceBlocksByExportName,
+      });
 
       return {
         content: [

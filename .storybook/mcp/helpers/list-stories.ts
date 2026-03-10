@@ -83,7 +83,7 @@ const extractVariantNames = (
   storyEntriesByExportName: Map<string, StorybookEntriesIndexEntry>,
 ): string[] => {
   const variants: string[] = [];
-  const canvasPattern = /<Canvas\b([^>]*)\/?>/g;
+  const canvasPattern = /<(?:Canvas|[A-Z][\w$]*Canvas)\b([^>]*)\/?>/g;
 
   for (const match of storySource.matchAll(canvasPattern)) {
     const attributes = match[1];
@@ -116,13 +116,17 @@ const buildStoryEntriesByExportName = (
 
   return new Map(
     allStoryEntries
-      .filter((entry): entry is StorybookEntriesIndexEntry & { exportName: string; importPath: string } => {
-        if (!entry.exportName || !entry.importPath) {
-          return false;
-        }
+      .filter(
+        (
+          entry,
+        ): entry is StorybookEntriesIndexEntry & { exportName: string; importPath: string } => {
+          if (!entry.exportName || !entry.importPath) {
+            return false;
+          }
 
-        return allowedImportPaths.has(entry.importPath);
-      })
+          return allowedImportPaths.has(entry.importPath);
+        },
+      )
       .map((entry) => [entry.exportName!, entry]),
   );
 };
